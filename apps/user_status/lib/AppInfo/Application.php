@@ -36,6 +36,7 @@ use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
 use OCP\AppFramework\Http\Events\BeforeTemplateRenderedEvent;
+use OCP\IConfig;
 use OCP\User\Events\UserDeletedEvent;
 use OCP\User\Events\UserLiveStatusEvent;
 use OCP\UserStatus\IManager;
@@ -49,6 +50,12 @@ class Application extends App implements IBootstrap {
 
 	/** @var string */
 	public const APP_ID = 'user_status';
+
+	/** @var bool */
+	private $shareeEnumeration;
+
+	/** @var bool */
+	private $shareeEnumerationInGroupOnly;
 
 	/**
 	 * Application constructor.
@@ -71,8 +78,14 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(UserLiveStatusEvent::class, UserLiveStatusListener::class);
 		$context->registerEventListener(BeforeTemplateRenderedEvent::class, BeforeTemplateRenderedListener::class);
 
-		// Register the Dashboard panel
-		$context->registerDashboardWidget(UserStatusWidget::class);
+		$config = $this->getContainer()->query(IConfig::class);
+		$this->shareeEnumeration = $config->getAppValue('core', 'shareapi_allow_share_dialog_user_enumeration', 'yes') === 'yes';
+		$this->shareeEnumerationInGroupOnly = $this->shareeEnumeration && $config->getAppValue('core', 'shareapi_restrict_user_enumeration_to_group', 'no') === 'yes';
+
+		// Register the Dashboard panel if user enumeration is enabled and not limited
+		if ($this->shareeEnumeration && !$this->shareeEnumerationInGroupOnly) {
+			$context->registerDashboardWidget(UserStatusWidget::class);
+		}
 	}
 
 	public function boot(IBootContext $context): void {
